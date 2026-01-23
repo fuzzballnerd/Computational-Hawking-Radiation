@@ -1,0 +1,231 @@
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import scipy.interpolate as scp
+# import scipy.integrate as sci
+# from scipy.integrate import odeint
+
+# mD = 10**(10)
+# eD = 3*10**(-4)
+# M_pl = 1.22*10**(19)
+# g_to_GeV = 5.61*10**(23)
+# GeV_to_sec = 6.5821e-25    
+# sec_to_yr  = 1.0 / (365.25*24*3600)
+
+# alpha_rough = np.genfromtxt("/home/sarthaka/Downloads/blackhawk_v2.3/scripts/greybody_scripts/greybody_factors/charged/alpha_charged.txt")
+
+# def inter_func(file):
+#     some_variable = scp.interp1d(file[:,0], file[:,1], kind='cubic', bounds_error=False, fill_value=0.0)
+#     return some_variable
+
+# def alpha_smooth(M, Q):
+#         q = abs(Q/M)
+#         if q > 0.995:
+#             val = 0.0
+#         else:
+#             alpha_inter = inter_func(alpha_rough)
+#             val = alpha_inter(q)
+#         return val
+
+
+# ### for the visualization of alpha_smooth
+# ### start
+# # M = 9.6*10**(12)*g_to_GeV
+# # Q = 0.01*M/M_pl
+# # x_data = np.linspace(0,0.9999,10000)
+# # y_data = [alpha_smooth(M, q*M) for q in x_data]
+# # fig = plt.figure(figsize=(8, 6))
+# # plt.plot(x_data, y_data, 'b-')
+# # plt.show()
+# ### end
+
+# def rplus(M, Q):
+#     q = abs(Q/M)
+#     return M*(1+np.sqrt(1-(M_pl*q)**2))/M_pl**2
+
+# def de_system(y, t):
+#     M, Q = y
+#     q = abs(Q/M)
+#     if q >= 1.0:
+#         q = 1.0
+#         dQdt = 0.0
+#     if abs(Q) < 10**(-100000): 
+#         dQdt = 0.0
+#     else:
+#         arg = np.pi*rplus(M,Q)**2*mD**2/(eD*abs(Q)) 
+#         if arg > 100000000000:
+#             dQdt = 0.0
+#         else:
+#             term = eD**4*abs(Q)**3/(2*mD**2*np.pi**3*rplus(M, Q)**3)
+#             dQdt = -term*np.exp(-arg)
+
+#     alpha = alpha_smooth(M, Q)
+#     alpha_term = -alpha*M_pl**4/M**2    
+#     another_term = Q*dQdt/rplus(M,Q)
+#     dMdt = alpha_term + another_term
+#     return [dMdt, dQdt]
+    
+# mass = 9.6*10**(12)*g_to_GeV
+# real_q = 0.01*mass/M_pl
+# y0 = [mass, real_q]
+
+# t_yr = np.geomspace(1e-1, 10**(12), 10000)
+# t_sec = t_yr / sec_to_yr
+# t_gev = t_sec / GeV_to_sec
+
+# sol = odeint(de_system, y0, t_gev, rtol=1e-12, atol=1e-12)
+# mass_evol = sol[:,0]
+# charge_evol = sol[:,1]
+
+# M_g = mass_evol / g_to_GeV
+
+# # def Temp(M, Q):
+# #     if Q >= M/M_pl: return 0.0
+# #     kappa = np.sqrt(M**2 - (Q*M_pl)**2) / (2*M*(M + np.sqrt(M**2 - (Q*M_pl)**2)) - (Q*M_pl)**2)
+# #     return kappa / (2 * np.pi)
+
+# plt.figure(figsize=(8, 6))
+# plt.loglog(t_yr, M_g, 'b-', label=r'RN+BSM ($M_{PBH}$)')
+# # plt.loglog(t_yr, Temp(mass_evol, charge_evol), 'b-', label=r'RN+BSM ($M_{PBH}$)')
+
+# q_star = charge_evol * M_pl / mass_evol
+# q_star = np.clip(q_star, 0, 0.999999999)
+# mod_y = -np.log10(1-q_star)
+
+# ax1 = plt.gca()
+# ax2 = ax1.twinx()
+# ax2.semilogx(t_yr, mod_y, 'r-', label=r'Charge $-Log(1-Q/M)$')
+
+# ax1.set_xlabel("t [yr]")
+# ax1.set_ylabel(r"$M_{PBH}$ [g]", color='b')
+# ax2.set_ylabel(r"$-Log_{10}[1 - Q^*_D]$", color='r')
+
+# ax1.axvline(380000, color='grey', linestyle='-', linewidth=0.5, alpha=0.5) 
+# ax1.axvline(1.38e10, color='orange', linestyle='-', linewidth=1.5, label=r'$t_{universe}$')
+
+# ax1.set_ylim(1e7, 2e13)
+# ax1.set_xlim(1e-1, 2e14) 
+
+# plt.title("graph")
+# plt.show()
+
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.interpolate as scp
+import scipy.integrate as sci
+from scipy.integrate import solve_ivp
+
+mD = 10**(10)
+eD = 3*10**(-4)
+M_pl = 1.22*10**(19)
+g_to_GeV = 5.61*10**(23)
+GeV_to_sec = 6.5821e-25    
+sec_to_yr  = 1.0 / (365.25*24*3600)
+
+alpha_rough = np.genfromtxt("/home/sarthaka/Downloads/blackhawk_v2.3/scripts/greybody_scripts/greybody_factors/charged/alpha_charged.txt")
+
+def inter_func(file):
+    some_variable = scp.interp1d(file[:,0], file[:,1], kind='cubic', bounds_error=False, fill_value=0.0)
+    return some_variable
+
+def alpha_smooth(M, Q):
+        q = M_pl*abs(Q/M)
+        alpha_inter = inter_func(alpha_rough)
+        val = alpha_inter(q)
+        return val
+
+
+### for the visualization of alpha_smooth
+### start
+# M = 9.6*10**(12)*g_to_GeV
+# Q = 0.01*M/M_pl
+# x_data = np.linspace(0,0.9999,10000)
+# y_data = [alpha_smooth(M, q*M) for q in x_data]
+# fig = plt.figure(figsize=(8, 6))
+# plt.plot(x_data, y_data, 'b-')
+# plt.show()
+### end
+
+def rplus(M, Q):
+    q = abs(Q/M)
+    if M_pl*q >= 0.9:
+         M_pl*q == 0.9
+    return M*(1+np.sqrt(1-(M_pl*q)**2))/M_pl**2
+
+
+def de_system(t_sec, y):
+    M, Q = y
+    q = M_pl*abs(Q/M)
+    if q >= 0.85:
+        dQdt_gev = 10**(-28.135)
+        alpha = 10**(-28.135)
+    else:
+        term = eD**4*abs(Q)**3/(2*mD**2*np.pi**3*rplus(M, Q)**3)
+        dQdt_gev = -10**(-100)*term*np.exp(-np.pi*rplus(M,Q)**2*mD**2/(eD*abs(Q)))
+        alpha = alpha_smooth(M, Q)
+         
+    alpha_term = -alpha*M_pl**4/M**2
+    another_term = Q*dQdt_gev/rplus(M,Q)
+    dMdt_gev = alpha_term + another_term
+    dQdt_sec = dQdt_gev / GeV_to_sec
+    dMdt_sec = dMdt_gev / GeV_to_sec
+    return [dMdt_sec, dQdt_sec]
+
+mass = 9.6*10**(12)*g_to_GeV
+real_q = 0.01*mass/M_pl
+y0 = [mass, real_q]
+
+t_min_yr = 1e-8 
+t_max_yr = 10**(12)
+t_eval_yr = np.geomspace(t_min_yr, t_max_yr, 5000)
+t_eval_sec = t_eval_yr / sec_to_yr
+
+sol = solve_ivp(de_system, [t_eval_sec[0], t_eval_sec[-1]], y0, 
+                method='Radau', t_eval=t_eval_sec, rtol=1e-6, atol=1e-10)
+
+
+t_yr = sol.t * sec_to_yr
+mass_evol = sol.y[0]
+charge_evol = sol.y[1]
+
+q_star = charge_evol * M_pl / (mass_evol+10**(13))
+
+condition = q_star > 0.99999
+
+q_star_refined = np.where(condition, 0.0, q_star)
+mass_evol_refined = np.where(condition, 0.0, mass_evol)
+
+q_star_refined = np.clip(q_star_refined, 0, 0.99999)
+mod_y = -np.log10(1-q_star_refined)
+
+def Temp(M, Q):
+    # if Q >= M/M_pl: return 0.0
+    kappa = np.sqrt(M**2 - (Q*M_pl)**2) / (2*M*(M + np.sqrt(M**2 - (Q*M_pl)**2)) - (Q*M_pl)**2)
+    return kappa / (2 * np.pi)
+
+M_g = mass_evol_refined / g_to_GeV
+
+plt.figure(figsize=(8, 6))
+plt.loglog(t_yr, M_g, 'b-', label=r'RN+BSM ($M_{PBH}$)')
+plt.loglog(t_yr, Temp(mass_evol_refined, q_star_refined*mass_evol_refined/M_pl), 'b-', label=r'RN+BSM ($M_{PBH}$)')
+
+
+ax1 = plt.gca()
+ax2 = ax1.twinx()
+ax2.semilogx(t_yr, mod_y, 'r-', label=r'Charge $-Log(1-Q/M)$')
+
+ax1.set_xlabel("t [yr]")
+ax1.set_ylabel(r"$M_{PBH}$ [g]", color='b')
+ax2.set_ylabel(r"$-Log_{10}[1 - Q^*_D]$", color='r')
+
+# ax1.axvline(380000, color='grey', linestyle='-', linewidth=0.5, alpha=0.5) 
+# ax1.axvline(1.38e10, color='orange', linestyle='-', linewidth=1.5, label=r'$t_{universe}$')
+
+ax1.set_ylim(1e8, 2e14)
+ax1.set_xlim(1e-1, 2e14) 
+
+plt.title("graph")
+plt.show()
+
